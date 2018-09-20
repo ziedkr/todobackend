@@ -1,0 +1,50 @@
+test:
+  build: ../../
+  dockerfile: docker/dev/Dockerfile
+  volumes_from:
+    - cache
+  links:
+      - db
+  environment:
+    DJANGO_SETTINGS_MODULE: todobackend.settings.test
+    MYSQL_HOST: db
+    MYSQL_USER: root
+    MYSQL_PASSWORD: password
+    TEST_OUTPUT_DIR: /reports
+
+builder:
+  build: ../../ # meme que image test devtest parsque il ont le memee cache 
+  dockerfile: docker/dev/Dockerfile # meme que image test devtest parsque il ont le memee cache 
+  volumes:
+    - ../../target:/wheelhouse # les .whl serons copier dans /target dans le container
+  volumes_from:
+    - cache  # meme cache que le cache de test pour avoir acces a snaphot du code test
+  entrypoint: "entrypoint.sh" #quie une part de l'im de base qui actvera l'env viertuel
+  command: [ "pip", "wheel", "--no-index" , "-f /build" , "." ] # pip exute seulemetn les depencne local et ne le retelachgrgera pas du net (-f pour find links flag)
+
+agent:
+  image: docker/ansible
+  volumes:
+    - ../../ansible/probe.yml:/ansible/site.yml
+  links:
+    - db
+  environment:
+    PROBE_HOST: "db"
+    PROBE_PORT: "3306"
+
+
+db:
+  image: mysql:5.6
+  hostname: db
+  expose:
+    - "3306"
+  environment:
+    MYSQL_ROOT_PASSWORD: password
+
+cache:
+  build: ../../
+  dockerfile: docker/dev/Dockerfile
+  volumes:
+    - /tmp/cache:/cache
+    - /build   #ici le volume build a ajouter pour le monter dans la phase build(test.sh et docker files)
+  entrypoint: "true"
